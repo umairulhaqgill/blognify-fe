@@ -1,4 +1,4 @@
-// components/CanvasItem.jsx (updated with nested drop support)
+// components/CanvasItem.jsx (fixed with proper rearrangement support)
 import { useDrag, useDrop } from "react-dnd";
 import { usePage } from "../context/PageContext";
 import { COMPONENTS } from "../utils/components";
@@ -25,13 +25,30 @@ export default function CanvasItem({ component, parentProps }) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: "COMPONENT",
     item: { 
-      id: component.id,
+      id: component.id,  // Include the ID to identify this as an existing component
       type: component.type,
     },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
   }));
+
+  // Helper function to remove a component from anywhere in the tree
+  const removeComponentById = (components, targetId) => {
+    return components.reduce((acc, comp) => {
+      if (comp.id === targetId) {
+        return acc; // Skip this component (remove it)
+      }
+      
+      const updatedComp = { ...comp };
+      if (comp.children && comp.children.length > 0) {
+        updatedComp.children = removeComponentById(comp.children, targetId);
+      }
+      
+      acc.push(updatedComp);
+      return acc;
+    }, []);
+  };
 
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "COMPONENT",
@@ -42,47 +59,93 @@ export default function CanvasItem({ component, parentProps }) {
       // Only allow dropping if this component accepts children
       if (!definition.acceptsChildren) return;
       
-      // Create a new component from the dragged item
-      const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
-      const defaultProps = {};
-      
-      if (draggedDefinition?.propsSchema) {
-        Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
-          defaultProps[key] = schema.default || "";
-        });
-      }
-      
-      // Add the new component as a child
-      const newComponent = {
-        id: `comp-${Date.now()}`,
-        type: item.type,
-        props: defaultProps,
-        children: []
-      };
-      
-      // Update the page JSON with the new child
-      const updateComponentWithChild = (components, targetId, newChild) => {
-        return components.map(comp => {
-          if (comp.id === targetId) {
-            return {
-              ...comp,
-              children: [...(comp.children || []), newChild]
-            };
+      setPageJson(prev => {
+        // Check if this is an existing component being moved (has an ID)
+        if (item.id) {
+          // Find the component being moved
+          const findComponentById = (components, id) => {
+            for (const comp of components) {
+              if (comp.id === id) return comp;
+              if (comp.children) {
+                const found = findComponentById(comp.children, id);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+
+          const componentToMove = findComponentById(prev.components, item.id);
+          if (!componentToMove) return prev;
+
+          // Remove the component from its current position
+          const componentsWithoutMoved = removeComponentById(prev.components, item.id);
+          
+          // Add it as a child of this component
+          const updateComponentWithChild = (components, targetId, newChild) => {
+            return components.map(comp => {
+              if (comp.id === targetId) {
+                return {
+                  ...comp,
+                  children: [...(comp.children || []), newChild]
+                };
+              }
+              if (comp.children && comp.children.length > 0) {
+                return {
+                  ...comp,
+                  children: updateComponentWithChild(comp.children, targetId, newChild)
+                };
+              }
+              return comp;
+            });
+          };
+          
+          return {
+            ...prev,
+            components: updateComponentWithChild(componentsWithoutMoved, component.id, componentToMove)
+          };
+        } else {
+          // This is a new component from the sidebar
+          const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
+          const defaultProps = {};
+          
+          if (draggedDefinition?.propsSchema) {
+            Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
+              defaultProps[key] = schema.default || "";
+            });
           }
-          if (comp.children && comp.children.length > 0) {
-            return {
-              ...comp,
-              children: updateComponentWithChild(comp.children, targetId, newChild)
-            };
-          }
-          return comp;
-        });
-      };
-      
-      setPageJson(prev => ({
-        ...prev,
-        components: updateComponentWithChild(prev.components, component.id, newComponent)
-      }));
+          
+          const newComponent = {
+            id: `comp-${Date.now()}`,
+            type: item.type,
+            props: defaultProps,
+            children: []
+          };
+          
+          // Add the new component as a child
+          const updateComponentWithChild = (components, targetId, newChild) => {
+            return components.map(comp => {
+              if (comp.id === targetId) {
+                return {
+                  ...comp,
+                  children: [...(comp.children || []), newChild]
+                };
+              }
+              if (comp.children && comp.children.length > 0) {
+                return {
+                  ...comp,
+                  children: updateComponentWithChild(comp.children, targetId, newChild)
+                };
+              }
+              return comp;
+            });
+          };
+          
+          return {
+            ...prev,
+            components: updateComponentWithChild(prev.components, component.id, newComponent)
+          };
+        }
+      });
     },
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),
@@ -126,14 +189,21 @@ export default function CanvasItem({ component, parentProps }) {
     drop(node);
   };
 
+  // Visual feedback for drag state
+  const dragStyles = {
+    opacity: isDragging ? 0.5 : 1,
+    transform: isDragging ? 'rotate(2deg)' : 'rotate(0deg)',
+    transition: 'all 0.2s ease'
+  };
+
   switch (component.type) {
     case "h1":
       return (
         <div 
           ref={dragDropRef}
-          style={style} 
-          className={`${classNames.join(" ")} ${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-blue-200' : ''}
+          style={{...style, ...dragStyles}} 
+          className={`${classNames.join(" ")} 
+            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
             ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
             cursor-move rounded transition-all`}
           onClick={handleSelect}
@@ -146,9 +216,9 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <div 
           ref={dragDropRef}
-          style={style} 
-          className={`${classNames.join(" ")} ${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-blue-200' : ''}
+          style={{...style, ...dragStyles}} 
+          className={`${classNames.join(" ")} 
+            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
             ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
             cursor-move rounded transition-all`}
           onClick={handleSelect}
@@ -161,8 +231,8 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <div 
           ref={dragDropRef}
-          className={`${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-blue-200' : ''}
+          style={dragStyles}
+          className={`${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200 p-2 rounded' : ''} 
             ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
             inline-block cursor-move rounded transition-all`}
           onClick={handleSelect}
@@ -185,11 +255,11 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <span 
           ref={dragDropRef}
-          style={style} 
-          className={`${classNames.join(" ")} ${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-blue-200' : ''}
+          style={{...style, ...dragStyles}} 
+          className={`${classNames.join(" ")} 
+            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
             ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded transition-all`}
+            cursor-move rounded transition-all inline-block`}
           onClick={handleSelect}
         >
           {effectiveProps.text || "Inline text"}
@@ -200,8 +270,8 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <div 
           ref={drag}
-          className={`${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
+          style={dragStyles}
+          className={`${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
             cursor-move rounded overflow-hidden transition-all`}
           onClick={handleSelect}
         >
@@ -221,22 +291,29 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <div 
           ref={dragDropRef}
-          style={style} 
-          className={`${classNames.join(" ")} ${isDragging ? "opacity-50" : "opacity-100"} 
+          style={{...style, ...dragStyles}} 
+          className={`${classNames.join(" ")} 
             ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-400' : 'border border-dashed border-gray-300'} 
+            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"}
             cursor-move rounded-lg transition-all min-h-12`}
           onClick={handleSelect}
         >
-          {children.length > 0 ? children : <div className="p-4 text-gray-500 text-center">Drop components here</div>}
+          {children.length > 0 ? (
+            <div className="space-y-2">{children}</div>
+          ) : (
+            <div className="p-4 text-gray-500 text-center text-sm">
+              {isOver ? "Drop here" : "Drop components here"}
+            </div>
+          )}
         </div>
       );
     default:
       return (
         <div 
           ref={dragDropRef}
-          style={style} 
-          className={`${classNames.join(" ")} ${isDragging ? "opacity-50" : "opacity-100"} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-blue-200' : ''}
+          style={{...style, ...dragStyles}} 
+          className={`${classNames.join(" ")} 
+            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
             ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
             cursor-move rounded transition-all`}
           onClick={handleSelect}

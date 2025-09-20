@@ -1,4 +1,4 @@
-// components/Canvas.jsx (updated with nested drop support)
+// components/Canvas.jsx (fixed with proper rearrangement support)
 import { useDrop } from "react-dnd";
 import { usePage } from "../context/PageContext";
 import { useViewMode } from "../context/ViewModeContext";
@@ -9,6 +9,23 @@ export default function Canvas() {
   const { pageJson, setPageJson, selectedComponentId, setSelectedComponentId } = usePage();
   const { viewMode } = useViewMode();
 
+  // Helper function to remove a component from anywhere in the tree
+  const removeComponentById = (components, targetId) => {
+    return components.reduce((acc, comp) => {
+      if (comp.id === targetId) {
+        return acc; // Skip this component (remove it)
+      }
+      
+      const updatedComp = { ...comp };
+      if (comp.children && comp.children.length > 0) {
+        updatedComp.children = removeComponentById(comp.children, targetId);
+      }
+      
+      acc.push(updatedComp);
+      return acc;
+    }, []);
+  };
+
   const [{ isOver }, drop] = useDrop(() => ({
     accept: "COMPONENT",
     drop: (item, monitor) => {
@@ -18,28 +35,57 @@ export default function Canvas() {
         return; // Let the child handle the drop
       }
       
-      // Create a new component from the palette item
-      const definition = COMPONENTS.find(c => c.type === item.type);
-      const defaultProps = {};
-      
-      if (definition?.propsSchema) {
-        Object.entries(definition.propsSchema).forEach(([key, schema]) => {
-          defaultProps[key] = schema.default || "";
-        });
-      }
-      
-      setPageJson((prev) => ({
-        ...prev,
-        components: [
-          ...prev.components,
-          { 
-            id: `comp-${Date.now()}`,
-            type: item.type, 
-            props: defaultProps,
-            children: item.children || [] 
-          },
-        ],
-      }));
+      setPageJson((prev) => {
+        // Check if this is an existing component being moved (has an ID)
+        if (item.id) {
+          // Find the component being moved
+          const findComponentById = (components, id) => {
+            for (const comp of components) {
+              if (comp.id === id) return comp;
+              if (comp.children) {
+                const found = findComponentById(comp.children, id);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+
+          const componentToMove = findComponentById(prev.components, item.id);
+          if (!componentToMove) return prev;
+
+          // Remove the component from its current position
+          const componentsWithoutMoved = removeComponentById(prev.components, item.id);
+          
+          // Add it to the end of the root level
+          return {
+            ...prev,
+            components: [...componentsWithoutMoved, componentToMove],
+          };
+        } else {
+          // This is a new component from the sidebar
+          const definition = COMPONENTS.find(c => c.type === item.type);
+          const defaultProps = {};
+          
+          if (definition?.propsSchema) {
+            Object.entries(definition.propsSchema).forEach(([key, schema]) => {
+              defaultProps[key] = schema.default || "";
+            });
+          }
+          
+          return {
+            ...prev,
+            components: [
+              ...prev.components,
+              { 
+                id: `comp-${Date.now()}`,
+                type: item.type, 
+                props: defaultProps,
+                children: item.children || [] 
+              },
+            ],
+          };
+        }
+      });
     },
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),
