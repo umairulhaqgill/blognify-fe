@@ -191,10 +191,19 @@ export default function CanvasItem({ component, parentProps }) {
 
   // Visual feedback for drag state
   const dragStyles = {
-    opacity: isDragging ? 0.5 : 1,
-    transform: isDragging ? 'rotate(2deg)' : 'rotate(0deg)',
-    transition: 'all 0.2s ease'
+    opacity: isDragging ? 0.6 : 1,
+    transform: isDragging ? 'rotate(2deg) scale(1.05)' : 'rotate(0deg) scale(1)',
+    transition: 'all 0.2s ease',
+    filter: isDragging ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.15))' : 'none'
   };
+
+  const selectionStyles = isSelected 
+    ? "ring-2 ring-blue-500 ring-offset-2 shadow-lg transform scale-[1.02]" 
+    : "hover:ring-2 hover:ring-gray-300/50 hover:shadow-md";
+
+  const containerDropStyles = isOver && definition.acceptsChildren 
+    ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-dashed border-blue-400 shadow-lg' 
+    : '';
 
   switch (component.type) {
     case "h1":
@@ -202,14 +211,14 @@ export default function CanvasItem({ component, parentProps }) {
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
-          className={`${classNames.join(" ")} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded transition-all`}
+          className={`${classNames.join(" ")} ${containerDropStyles} ${selectionStyles}
+            cursor-move rounded-xl transition-all duration-300 p-4 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
         >
-          <h1 className="text-3xl font-bold">{effectiveProps.text || "Heading"}</h1>
-          {children}
+          <h1 className="text-3xl font-bold leading-tight">{effectiveProps.text || "Heading"}</h1>
+          {children.length > 0 && (
+            <div className="mt-4 space-y-2">{children}</div>
+          )}
         </div>
       );
     case "p":
@@ -217,14 +226,14 @@ export default function CanvasItem({ component, parentProps }) {
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
-          className={`${classNames.join(" ")} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded transition-all`}
+          className={`${classNames.join(" ")} ${containerDropStyles} ${selectionStyles}
+            cursor-move rounded-xl transition-all duration-300 p-4 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
         >
-          <p>{effectiveProps.text || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris."}</p>
-          {children}
+          <p className="leading-relaxed">{effectiveProps.text || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris."}</p>
+          {children.length > 0 && (
+            <div className="mt-3 space-y-2">{children}</div>
+          )}
         </div>
       );
     case "button":
@@ -232,9 +241,8 @@ export default function CanvasItem({ component, parentProps }) {
         <div 
           ref={dragDropRef}
           style={dragStyles}
-          className={`${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200 p-2 rounded' : ''} 
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            inline-block cursor-move rounded transition-all`}
+          className={`${containerDropStyles} ${selectionStyles}
+            inline-block cursor-move rounded-xl transition-all duration-300`}
           onClick={handleSelect}
         >
           <button
@@ -242,13 +250,15 @@ export default function CanvasItem({ component, parentProps }) {
               backgroundColor: effectiveProps.backgroundColor,
               color: effectiveProps.color || "#ffffff",
               borderRadius: effectiveProps.borderRadius,
-              padding: effectiveProps.padding || "0.5rem 1rem"
+              padding: effectiveProps.padding || "0.75rem 1.5rem"
             }}
-            className="font-medium"
+            className="font-medium shadow-md hover:shadow-lg transition-shadow duration-200 border border-black/10"
           >
             {effectiveProps.text || "Button"}
-            {children}
           </button>
+          {children.length > 0 && (
+            <div className="mt-2 space-y-1">{children}</div>
+          )}
         </div>
       );
     case "span":
@@ -256,14 +266,12 @@ export default function CanvasItem({ component, parentProps }) {
         <span 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
-          className={`${classNames.join(" ")} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded transition-all inline-block`}
+          className={`${classNames.join(" ")} ${containerDropStyles} ${selectionStyles}
+            cursor-move rounded-lg transition-all duration-300 inline-block px-2 py-1 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
         >
           {effectiveProps.text || "Inline text"}
-          {children}
+          {children.length > 0 && <span className="ml-2">{children}</span>}
         </span>
       );
     case "image":
@@ -271,8 +279,8 @@ export default function CanvasItem({ component, parentProps }) {
         <div 
           ref={drag}
           style={dragStyles}
-          className={`${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded overflow-hidden transition-all`}
+          className={`${selectionStyles}
+            cursor-move rounded-xl overflow-hidden transition-all duration-300 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
         >
           <img
@@ -283,6 +291,7 @@ export default function CanvasItem({ component, parentProps }) {
               height: effectiveProps.height || "auto",
               borderRadius: effectiveProps.borderRadius
             }}
+            className="block"
           />
         </div>
       );
@@ -293,16 +302,28 @@ export default function CanvasItem({ component, parentProps }) {
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
           className={`${classNames.join(" ")} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-400' : 'border border-dashed border-gray-300'} 
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"}
-            cursor-move rounded-lg transition-all min-h-12`}
+            ${isOver && definition.acceptsChildren 
+              ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-dashed border-blue-400 shadow-lg' 
+              : 'border-2 border-dashed border-gray-300/50 hover:border-gray-400/50'
+            } 
+            ${selectionStyles}
+            cursor-move rounded-2xl transition-all duration-300 min-h-20 bg-white/40 backdrop-blur-sm`}
           onClick={handleSelect}
         >
           {children.length > 0 ? (
-            <div className="space-y-2">{children}</div>
+            <div className="p-4 space-y-4">{children}</div>
           ) : (
-            <div className="p-4 text-gray-500 text-center text-sm">
-              {isOver ? "Drop here" : "Drop components here"}
+            <div className="p-8 text-center">
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <p className="text-gray-500 text-sm font-medium">
+                  {isOver ? "Drop component here" : "Drop components here"}
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -312,13 +333,15 @@ export default function CanvasItem({ component, parentProps }) {
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
-          className={`${classNames.join(" ")} 
-            ${isOver && definition.acceptsChildren ? 'bg-blue-50 border-2 border-dashed border-blue-200' : ''}
-            ${isSelected ? "ring-2 ring-blue-500 ring-inset" : "hover:ring-1 hover:ring-gray-300"} 
-            cursor-move rounded transition-all`}
+          className={`${classNames.join(" ")} ${containerDropStyles} ${selectionStyles}
+            cursor-move rounded-xl transition-all duration-300 p-4 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
         >
-          {children || <div className="p-2">Unknown component: {component.type}</div>}
+          {children.length > 0 ? (
+            <div className="space-y-2">{children}</div>
+          ) : (
+            <div className="p-2 text-gray-500">Unknown component: {component.type}</div>
+          )}
         </div>
       );
   }
