@@ -117,19 +117,8 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
         
         {/* Right section - Theme and View */}
         <div className="flex items-center space-x-6">
-          {/* Theme selector */}
-          <div className="flex items-center space-x-3">
-            <label className="text-sm font-medium text-gray-600">Theme:</label>
-            <select className="px-3 py-2 bg-white/70 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-medium text-gray-700 hover:bg-white hover:border-gray-300/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-              <option>Light Theme</option>
-              <option>Dark Theme</option>
-              <option>Custom Theme</option>
-            </select>
-          </div>
-          
           {/* View mode selector */}
           <div className="flex items-center space-x-3">
-            <label className="text-sm font-medium text-gray-600">View:</label>
             <div className="flex bg-white/70 backdrop-blur-sm rounded-xl p-1 border border-gray-200/50 shadow-sm">
               {[
                 { mode: "desktop", icon: "🖥️", label: "Desktop" },

@@ -256,7 +256,7 @@ export const COMPONENTS = [
       src: { 
         type: "text", 
         label: "Image URL", 
-        default: "https://via.placeholder.com/400x200" 
+        default: "/placeholder.svg" 
       },
       alt: { 
         type: "text", 
