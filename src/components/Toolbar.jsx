@@ -1,4 +1,4 @@
-// components/Toolbar.jsx (modern UI design)
+// components/Toolbar.jsx (brand colors compatible)
 import { usePage } from "../context/PageContext";
 import { useViewMode } from "../context/ViewModeContext";
 
@@ -39,12 +39,14 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
     setShowJson(!showJson);
   };
 
-  const ButtonStyle = ({ active, gradient, children, ...props }) => (
+  const ButtonStyle = ({ active, variant = "default", children, ...props }) => (
     <button 
       className={`relative px-4 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 active:scale-95 ${
         active 
-          ? `bg-gradient-to-r ${gradient} text-white shadow-lg shadow-blue-500/25` 
-          : 'bg-white/70 backdrop-blur-sm text-gray-700 hover:bg-white hover:text-gray-900 border border-gray-200/50 hover:border-gray-300/50 shadow-sm hover:shadow-md'
+          ? `bg-[#f75a0b] text-white shadow-lg shadow-orange-500/25` 
+          : variant === "secondary" 
+            ? 'bg-black text-[#fcfcfc] hover:bg-gray-800 border border-gray-700 hover:border-gray-600 shadow-sm hover:shadow-md'
+            : 'bg-[#fcfcfc] text-black hover:bg-white hover:text-gray-800 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md'
       }`}
       {...props}
     >
@@ -53,19 +55,19 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
   );
 
   return (
-    <div className="bg-gradient-to-r from-white via-gray-50 to-white border-b border-gray-200/50 shadow-lg backdrop-blur-sm">
+    <div className="bg-gradient-to-r from-[#fcfcfc] via-white to-[#fcfcfc] border-b border-gray-200 shadow-lg backdrop-blur-sm">
       <div className="flex items-center justify-between px-8 py-4">
         {/* Left section - Actions */}
         <div className="flex items-center space-x-4">
           {/* Logo/Brand */}
           <div className="flex items-center space-x-3 mr-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-[#f75a0b] rounded-lg flex items-center justify-center shadow-lg">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
               </svg>
             </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              PageBuilder
+            <span className="font-bold text-xl text-black">
+              Blognify
             </span>
           </div>
 
@@ -73,7 +75,6 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
           <div className="flex items-center space-x-3">
             <ButtonStyle 
               active={showJson} 
-              gradient="from-green-500 to-emerald-600"
               onClick={handleShowJson}
             >
               <div className="flex items-center space-x-2">
@@ -85,7 +86,7 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
             </ButtonStyle>
 
             <label className="relative cursor-pointer group">
-              <ButtonStyle gradient="from-blue-500 to-cyan-600">
+              <ButtonStyle variant="secondary">
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
@@ -101,10 +102,7 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
               />
             </label>
 
-            <ButtonStyle 
-              gradient="from-purple-500 to-pink-600"
-              onClick={handleExport}
-            >
+            <ButtonStyle onClick={handleExport}>
               <div className="flex items-center space-x-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -119,7 +117,7 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
         <div className="flex items-center space-x-6">
           {/* View mode selector */}
           <div className="flex items-center space-x-3">
-            <div className="flex bg-white/70 backdrop-blur-sm rounded-xl p-1 border border-gray-200/50 shadow-sm">
+            <div className="flex bg-[#fcfcfc] rounded-xl p-1 border border-gray-200 shadow-sm">
               {[
                 { mode: "desktop", icon: "🖥️", label: "Desktop" },
                 { mode: "tablet", icon: "📱", label: "Tablet" }, 
@@ -129,8 +127,8 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
                   key={mode}
                   className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     viewMode === mode
-                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105"
-                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                      ? "bg-[#f75a0b] text-white shadow-lg transform scale-105"
+                      : "text-black hover:text-gray-700 hover:bg-gray-50"
                   }`}
                   onClick={() => setViewMode(mode)}
                 >
@@ -139,7 +137,7 @@ export default function Toolbar({ showJson, setShowJson, jsonData, setJsonData }
                     <span>{label}</span>
                   </div>
                   {viewMode === mode && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg blur opacity-30 -z-10"></div>
+                    <div className="absolute inset-0 bg-[#f75a0b] rounded-lg blur opacity-20 -z-10"></div>
                   )}
                 </button>
               ))}

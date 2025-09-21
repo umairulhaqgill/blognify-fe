@@ -266,7 +266,7 @@ export const COMPONENTS = [
       width: {
         type: "text",
         label: "Width",
-        default: "100%"
+        default: "10%"
       },
       height: {
         type: "text",

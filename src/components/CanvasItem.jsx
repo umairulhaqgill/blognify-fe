@@ -278,7 +278,7 @@ export default function CanvasItem({ component, parentProps }) {
       return (
         <div 
           ref={drag}
-          style={dragStyles}
+          style={{width: effectiveProps.width || "100%", ...dragStyles}} 
           className={`${selectionStyles}
             cursor-move rounded-xl overflow-hidden transition-all duration-300 bg-white/80 backdrop-blur-sm border border-gray-200/50`}
           onClick={handleSelect}
@@ -287,7 +287,7 @@ export default function CanvasItem({ component, parentProps }) {
             src={effectiveProps.src || "https://via.placeholder.com/400x200"}
             alt={effectiveProps.alt || "Placeholder image"}
             style={{ 
-              width: effectiveProps.width || "100%",
+              width: "100%",
               height: effectiveProps.height || "auto",
               borderRadius: effectiveProps.borderRadius
             }}

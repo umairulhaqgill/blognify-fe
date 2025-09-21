@@ -89,18 +89,18 @@ function DraggableItem({ component }) {
 
 export default function ComponentSidebar() {
   return (
-    <div className="w-80 bg-gradient-to-b from-white to-gray-50 border-r border-gray-200/50 shadow-lg overflow-auto">
+    <div className="w-80 bg-gradient-to-b from-[#fcfcfc] to-gray-50 border-r border-gray-200 shadow-lg overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-200/50 p-6">
+      <div className="sticky top-0 z-10 bg-[#fcfcfc]/80 backdrop-blur-sm border-b border-gray-200 p-6">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#f75a0b] rounded-lg flex items-center justify-center shadow-lg">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Components</h2>
-            <p className="text-sm text-gray-500">Drag to add to canvas</p>
+            <h2 className="text-xl font-bold text-black">Components</h2>
+            <p className="text-sm text-gray-600">Drag to add to canvas</p>
           </div>
         </div>
       </div>
