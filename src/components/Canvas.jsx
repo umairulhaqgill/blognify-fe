@@ -32,7 +32,7 @@ const findComponentById = (components, id) => {
     }
   }
   return null;
-};
+};  
 
 const [{ isOver }, drop] = useDrop(() => ({
   accept: "COMPONENT",
@@ -46,10 +46,16 @@ const [{ isOver }, drop] = useDrop(() => ({
         const componentToMove = findComponentById(prev.components, item.id);
         if (!componentToMove) return prev;
 
-        // remove it from old parent
+        // 🚫 Prevent moving to root unless explicitly allowed
+        const def = COMPONENTS.find(c => c.type === componentToMove.type);
+        if (def && def.allowRoot === false) {
+          return prev; // block drop into root
+        }
+
+        // remove from old parent
         const componentsWithoutMoved = removeComponentById(prev.components, item.id);
 
-        // insert it at root level (append at end for now)
+        // insert at root
         return {
           ...prev,
           components: [...componentsWithoutMoved, componentToMove],
@@ -58,9 +64,15 @@ const [{ isOver }, drop] = useDrop(() => ({
 
       // CASE 2: new component from sidebar
       const definition = COMPONENTS.find((c) => c.type === item.type);
-      const defaultProps = {};
+      if (!definition) return prev;
 
-      if (definition?.propsSchema) {
+      // 🚫 Prevent new component at root unless explicitly allowed
+      if (definition.allowRoot === false) {
+        return prev;
+      }
+
+      const defaultProps = {};
+      if (definition.propsSchema) {
         Object.entries(definition.propsSchema).forEach(([key, schema]) => {
           defaultProps[key] = schema.default || "";
         });
@@ -83,6 +95,7 @@ const [{ isOver }, drop] = useDrop(() => ({
     isOver: monitor.isOver({ shallow: true }),
   }),
 }));
+
 
 
   const getCanvasClass = () => {

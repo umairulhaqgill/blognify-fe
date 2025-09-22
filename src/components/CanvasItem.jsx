@@ -77,6 +77,11 @@ const [{ isOver }, drop] = useDrop(() => ({
   drop: (item, monitor) => {
     // Don't allow dropping onto itself
     if (item.id === component.id) return;
+    
+    if (monitor.didDrop()) return;
+    
+    // Prevent dropping into root-level container
+    if (component.isRoot) return; // add `isRoot: true` on your root component
 
     // Only allow dropping if this component accepts children
     if (!definition.acceptsChildren) return;
@@ -135,6 +140,7 @@ const [{ isOver }, drop] = useDrop(() => ({
     isOver: monitor.isOver({ shallow: true }),
   }),
 }));
+
 
 
   // Merge parent props with this component's props
