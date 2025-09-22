@@ -2,6 +2,8 @@
 import { useDrag, useDrop } from "react-dnd";
 import { usePage } from "../context/PageContext";
 import { COMPONENTS } from "../utils/components";
+import { insertChildById } from "../utils/treeUtils";
+
 
 function mergeInheritedProps(component, parentProps) {
   const definition = COMPONENTS.find((c) => c.type === component.type);
@@ -50,107 +52,90 @@ export default function CanvasItem({ component, parentProps }) {
     }, []);
   };
 
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: "COMPONENT",
-    drop: (item, monitor) => {
-      // Don't allow dropping onto itself
-      if (item.id === component.id) return;
-      
-      // Only allow dropping if this component accepts children
-      if (!definition.acceptsChildren) return;
-      
-      setPageJson(prev => {
-        // Check if this is an existing component being moved (has an ID)
-        if (item.id) {
-          // Find the component being moved
-          const findComponentById = (components, id) => {
-            for (const comp of components) {
-              if (comp.id === id) return comp;
-              if (comp.children) {
-                const found = findComponentById(comp.children, id);
-                if (found) return found;
-              }
+  
+  // helper to insert a child under a specific parent by id
+const insertChildById = (components, targetId, newChild) => {
+  return components.map(comp => {
+    if (comp.id === targetId) {
+      return {
+        ...comp,
+        children: [...(comp.children || []), newChild],
+      };
+    }
+    if (comp.children && comp.children.length > 0) {
+      return {
+        ...comp,
+        children: insertChildById(comp.children, targetId, newChild),
+      };
+    }
+    return comp;
+  });
+};
+
+const [{ isOver }, drop] = useDrop(() => ({
+  accept: "COMPONENT",
+  drop: (item, monitor) => {
+    // Don't allow dropping onto itself
+    if (item.id === component.id) return;
+
+    // Only allow dropping if this component accepts children
+    if (!definition.acceptsChildren) return;
+
+    setPageJson(prev => {
+      // existing component being moved
+      if (item.id) {
+        const findComponentById = (components, id) => {
+          for (const comp of components) {
+            if (comp.id === id) return comp;
+            if (comp.children) {
+              const found = findComponentById(comp.children, id);
+              if (found) return found;
             }
-            return null;
-          };
-
-          const componentToMove = findComponentById(prev.components, item.id);
-          if (!componentToMove) return prev;
-
-          // Remove the component from its current position
-          const componentsWithoutMoved = removeComponentById(prev.components, item.id);
-          
-          // Add it as a child of this component
-          const updateComponentWithChild = (components, targetId, newChild) => {
-            return components.map(comp => {
-              if (comp.id === targetId) {
-                return {
-                  ...comp,
-                  children: [...(comp.children || []), newChild]
-                };
-              }
-              if (comp.children && comp.children.length > 0) {
-                return {
-                  ...comp,
-                  children: updateComponentWithChild(comp.children, targetId, newChild)
-                };
-              }
-              return comp;
-            });
-          };
-          
-          return {
-            ...prev,
-            components: updateComponentWithChild(componentsWithoutMoved, component.id, componentToMove)
-          };
-        } else {
-          // This is a new component from the sidebar
-          const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
-          const defaultProps = {};
-          
-          if (draggedDefinition?.propsSchema) {
-            Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
-              defaultProps[key] = schema.default || "";
-            });
           }
-          
-          const newComponent = {
-            id: `comp-${Date.now()}`,
-            type: item.type,
-            props: defaultProps,
-            children: []
-          };
-          
-          // Add the new component as a child
-          const updateComponentWithChild = (components, targetId, newChild) => {
-            return components.map(comp => {
-              if (comp.id === targetId) {
-                return {
-                  ...comp,
-                  children: [...(comp.children || []), newChild]
-                };
-              }
-              if (comp.children && comp.children.length > 0) {
-                return {
-                  ...comp,
-                  children: updateComponentWithChild(comp.children, targetId, newChild)
-                };
-              }
-              return comp;
-            });
-          };
-          
-          return {
-            ...prev,
-            components: updateComponentWithChild(prev.components, component.id, newComponent)
-          };
-        }
-      });
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver({ shallow: true }),
-    }),
-  }));
+          return null;
+        };
+
+        const componentToMove = findComponentById(prev.components, item.id);
+        if (!componentToMove) return prev;
+
+        // remove from old parent
+        const componentsWithoutMoved = removeComponentById(prev.components, item.id);
+
+        // insert under the current component
+        return {
+          ...prev,
+          components: insertChildById(componentsWithoutMoved, component.id, componentToMove),
+        };
+      }
+
+      // brand-new component from sidebar
+      const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
+      const defaultProps = {};
+
+      if (draggedDefinition?.propsSchema) {
+        Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
+          defaultProps[key] = schema.default || "";
+        });
+      }
+
+      const newComponent = {
+        id: `comp-${Date.now()}`,
+        type: item.type,
+        props: defaultProps,
+        children: [],
+      };
+
+      return {
+        ...prev,
+        components: insertChildById(prev.components, component.id, newComponent),
+      };
+    });
+  },
+  collect: (monitor) => ({
+    isOver: monitor.isOver({ shallow: true }),
+  }),
+}));
+
 
   // Merge parent props with this component's props
   const effectiveProps = mergeInheritedProps(component, parentProps);

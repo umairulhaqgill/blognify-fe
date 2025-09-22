@@ -9,88 +9,81 @@ export default function Canvas() {
   const { pageJson, setPageJson, selectedComponentId, setSelectedComponentId } = usePage();
   const { viewMode } = useViewMode();
 
-  // Helper function to remove a component from anywhere in the tree
-  const removeComponentById = (components, targetId) => {
-    return components.reduce((acc, comp) => {
-      if (comp.id === targetId) {
-        return acc; // Skip this component (remove it)
-      }
-      
-      const updatedComp = { ...comp };
-      if (comp.children && comp.children.length > 0) {
-        updatedComp.children = removeComponentById(comp.children, targetId);
-      }
-      
-      acc.push(updatedComp);
-      return acc;
-    }, []);
-  };
+  // helper to remove a component by id
+const removeComponentById = (components, targetId) => {
+  return components.reduce((acc, comp) => {
+    if (comp.id === targetId) return acc; // skip
+    const updated = { ...comp };
+    if (comp.children && comp.children.length > 0) {
+      updated.children = removeComponentById(comp.children, targetId);
+    }
+    acc.push(updated);
+    return acc;
+  }, []);
+};
 
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: "COMPONENT",
-    drop: (item, monitor) => {
-      // Check if we dropped on an existing component or on the canvas
-      const didDropOnChild = monitor.didDrop();
-      if (didDropOnChild) {
-        return; // Let the child handle the drop
+// helper to find a component by id
+const findComponentById = (components, id) => {
+  for (const comp of components) {
+    if (comp.id === id) return comp;
+    if (comp.children) {
+      const found = findComponentById(comp.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const [{ isOver }, drop] = useDrop(() => ({
+  accept: "COMPONENT",
+  drop: (item, monitor) => {
+    // If dropped inside a child component, let the child handle it
+    if (monitor.didDrop()) return;
+
+    setPageJson((prev) => {
+      // CASE 1: existing component being moved
+      if (item.id) {
+        const componentToMove = findComponentById(prev.components, item.id);
+        if (!componentToMove) return prev;
+
+        // remove it from old parent
+        const componentsWithoutMoved = removeComponentById(prev.components, item.id);
+
+        // insert it at root level (append at end for now)
+        return {
+          ...prev,
+          components: [...componentsWithoutMoved, componentToMove],
+        };
       }
-      
-      setPageJson((prev) => {
-        // Check if this is an existing component being moved (has an ID)
-        if (item.id) {
-          // Find the component being moved
-          const findComponentById = (components, id) => {
-            for (const comp of components) {
-              if (comp.id === id) return comp;
-              if (comp.children) {
-                const found = findComponentById(comp.children, id);
-                if (found) return found;
-              }
-            }
-            return null;
-          };
 
-          const componentToMove = findComponentById(prev.components, item.id);
-          if (!componentToMove) return prev;
+      // CASE 2: new component from sidebar
+      const definition = COMPONENTS.find((c) => c.type === item.type);
+      const defaultProps = {};
 
-          // Remove the component from its current position
-          const componentsWithoutMoved = removeComponentById(prev.components, item.id);
-          
-          // Add it to the end of the root level
-          return {
-            ...prev,
-            components: [...componentsWithoutMoved, componentToMove],
-          };
-        } else {
-          // This is a new component from the sidebar
-          const definition = COMPONENTS.find(c => c.type === item.type);
-          const defaultProps = {};
-          
-          if (definition?.propsSchema) {
-            Object.entries(definition.propsSchema).forEach(([key, schema]) => {
-              defaultProps[key] = schema.default || "";
-            });
-          }
-          
-          return {
-            ...prev,
-            components: [
-              ...prev.components,
-              { 
-                id: `comp-${Date.now()}`,
-                type: item.type, 
-                props: defaultProps,
-                children: item.children || [] 
-              },
-            ],
-          };
-        }
-      });
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver({ shallow: true }),
-    }),
-  }));
+      if (definition?.propsSchema) {
+        Object.entries(definition.propsSchema).forEach(([key, schema]) => {
+          defaultProps[key] = schema.default || "";
+        });
+      }
+
+      const newComponent = {
+        id: `comp-${Date.now()}`,
+        type: item.type,
+        props: defaultProps,
+        children: [],
+      };
+
+      return {
+        ...prev,
+        components: [...prev.components, newComponent],
+      };
+    });
+  },
+  collect: (monitor) => ({
+    isOver: monitor.isOver({ shallow: true }),
+  }),
+}));
+
 
   const getCanvasClass = () => {
     switch(viewMode) {
