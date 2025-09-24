@@ -1,9 +1,43 @@
-// components/CanvasItem.jsx (fixed with proper rearrangement support)
+// components/CanvasItem.jsx (full updated version with delete support)
 import { useDrag, useDrop } from "react-dnd";
 import { usePage } from "../context/PageContext";
 import { COMPONENTS } from "../utils/components";
-import { insertChildById } from "../utils/treeUtils";
 
+// Export the remove function so it can be used by the parent component
+export const removeComponentById = (components, targetId) => {
+  return components.reduce((acc, comp) => {
+    if (comp.id === targetId) {
+      return acc; // Skip this component (remove it)
+    }
+    
+    const updatedComp = { ...comp };
+    if (comp.children && comp.children.length > 0) {
+      updatedComp.children = removeComponentById(comp.children, targetId);
+    }
+    
+    acc.push(updatedComp);
+    return acc;
+  }, []);
+};
+
+// Helper to insert a child under a specific parent by id
+const insertChildById = (components, targetId, newChild) => {
+  return components.map(comp => {
+    if (comp.id === targetId) {
+      return {
+        ...comp,
+        children: [...(comp.children || []), newChild],
+      };
+    }
+    if (comp.children && comp.children.length > 0) {
+      return {
+        ...comp,
+        children: insertChildById(comp.children, targetId, newChild),
+      };
+    }
+    return comp;
+  });
+};
 
 function mergeInheritedProps(component, parentProps) {
   const definition = COMPONENTS.find((c) => c.type === component.type);
@@ -35,113 +69,86 @@ export default function CanvasItem({ component, parentProps }) {
     }),
   }));
 
-  // Helper function to remove a component from anywhere in the tree
-  const removeComponentById = (components, targetId) => {
-    return components.reduce((acc, comp) => {
-      if (comp.id === targetId) {
-        return acc; // Skip this component (remove it)
-      }
-      
-      const updatedComp = { ...comp };
-      if (comp.children && comp.children.length > 0) {
-        updatedComp.children = removeComponentById(comp.children, targetId);
-      }
-      
-      acc.push(updatedComp);
-      return acc;
-    }, []);
+  // Add a delete handler for this specific component
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (selectedComponentId === component.id) {
+      setPageJson(prev => ({
+        ...prev,
+        components: removeComponentById(prev.components, component.id)
+      }));
+      setSelectedComponentId(null);
+    }
   };
 
-  
-  // helper to insert a child under a specific parent by id
-const insertChildById = (components, targetId, newChild) => {
-  return components.map(comp => {
-    if (comp.id === targetId) {
-      return {
-        ...comp,
-        children: [...(comp.children || []), newChild],
-      };
-    }
-    if (comp.children && comp.children.length > 0) {
-      return {
-        ...comp,
-        children: insertChildById(comp.children, targetId, newChild),
-      };
-    }
-    return comp;
-  });
-};
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: "COMPONENT",
+    drop: (item, monitor) => {
+      // Don't allow dropping onto itself
+      if (item.id === component.id) return;
+      
+      if (monitor.didDrop()) return;
+      
+      // Prevent dropping into root-level container
+      if (component.isRoot) return;
 
-const [{ isOver }, drop] = useDrop(() => ({
-  accept: "COMPONENT",
-  drop: (item, monitor) => {
-    // Don't allow dropping onto itself
-    if (item.id === component.id) return;
-    
-    if (monitor.didDrop()) return;
-    
-    // Prevent dropping into root-level container
-    if (component.isRoot) return; // add `isRoot: true` on your root component
+      // Only allow dropping if this component accepts children
+      if (!definition.acceptsChildren) return;
 
-    // Only allow dropping if this component accepts children
-    if (!definition.acceptsChildren) return;
-
-    setPageJson(prev => {
-      // existing component being moved
-      if (item.id) {
-        const findComponentById = (components, id) => {
-          for (const comp of components) {
-            if (comp.id === id) return comp;
-            if (comp.children) {
-              const found = findComponentById(comp.children, id);
-              if (found) return found;
+      setPageJson(prev => {
+        // existing component being moved
+        if (item.id) {
+          const findComponentById = (components, id) => {
+            for (const comp of components) {
+              if (comp.id === id) return comp;
+              if (comp.children) {
+                const found = findComponentById(comp.children, id);
+                if (found) return found;
+              }
             }
-          }
-          return null;
+            return null;
+          };
+
+          const componentToMove = findComponentById(prev.components, item.id);
+          if (!componentToMove) return prev;
+
+          // remove from old parent
+          const componentsWithoutMoved = removeComponentById(prev.components, item.id);
+
+          // insert under the current component
+          return {
+            ...prev,
+            components: insertChildById(componentsWithoutMoved, component.id, componentToMove),
+          };
+        }
+
+        // brand-new component from sidebar
+        const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
+        const defaultProps = {};
+
+        if (draggedDefinition?.propsSchema) {
+          Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
+            defaultProps[key] = schema.default || "";
+          });
+        }
+
+        const newComponent = {
+          id: `comp-${Date.now()}`,
+          type: item.type,
+          props: defaultProps,
+          children: [],
         };
 
-        const componentToMove = findComponentById(prev.components, item.id);
-        if (!componentToMove) return prev;
-
-        // remove from old parent
-        const componentsWithoutMoved = removeComponentById(prev.components, item.id);
-
-        // insert under the current component
         return {
           ...prev,
-          components: insertChildById(componentsWithoutMoved, component.id, componentToMove),
+          components: insertChildById(prev.components, component.id, newComponent),
         };
-      }
-
-      // brand-new component from sidebar
-      const draggedDefinition = COMPONENTS.find(c => c.type === item.type);
-      const defaultProps = {};
-
-      if (draggedDefinition?.propsSchema) {
-        Object.entries(draggedDefinition.propsSchema).forEach(([key, schema]) => {
-          defaultProps[key] = schema.default || "";
-        });
-      }
-
-      const newComponent = {
-        id: `comp-${Date.now()}`,
-        type: item.type,
-        props: defaultProps,
-        children: [],
-      };
-
-      return {
-        ...prev,
-        components: insertChildById(prev.components, component.id, newComponent),
-      };
-    });
-  },
-  collect: (monitor) => ({
-    isOver: monitor.isOver({ shallow: true }),
-  }),
-}));
-
-
+      });
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver({ shallow: true }),
+    }),
+  }));
 
   // Merge parent props with this component's props
   const effectiveProps = mergeInheritedProps(component, parentProps);
@@ -165,7 +172,7 @@ const [{ isOver }, drop] = useDrop(() => ({
 
   const children = component.children?.map((child) => (
     <CanvasItem key={child.id} component={child} parentProps={effectiveProps} />
-  ));
+  )) || [];
 
   const handleSelect = (e) => {
     e.stopPropagation();
@@ -196,9 +203,31 @@ const [{ isOver }, drop] = useDrop(() => ({
     ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-dashed border-blue-400 shadow-lg' 
     : '';
 
+  // Add delete button to selected components
+  const deleteButton = isSelected ? (
+    <button
+      onClick={handleDelete}
+      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors z-10 shadow-md"
+      title="Delete component (or press Delete key)"
+    >
+      ×
+    </button>
+  ) : null;
+
+  // Wrap each component with a relative container for the delete button
+  const renderWithWrapper = (content, isInline = false) => (
+    <div 
+      className={`relative ${isInline ? 'inline-block' : 'block'}`}
+      style={isInline ? {display: 'inline-block'} : {}}
+    >
+      {deleteButton}
+      {content}
+    </div>
+  );
+
   switch (component.type) {
     case "h1":
-      return (
+      return renderWithWrapper(
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
@@ -213,7 +242,7 @@ const [{ isOver }, drop] = useDrop(() => ({
         </div>
       );
     case "p":
-      return (
+      return renderWithWrapper(
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
@@ -228,7 +257,7 @@ const [{ isOver }, drop] = useDrop(() => ({
         </div>
       );
     case "button":
-      return (
+      return renderWithWrapper(
         <div 
           ref={dragDropRef}
           style={dragStyles}
@@ -250,10 +279,11 @@ const [{ isOver }, drop] = useDrop(() => ({
           {children.length > 0 && (
             <div className="mt-2 space-y-1">{children}</div>
           )}
-        </div>
+        </div>,
+        true
       );
     case "span":
-      return (
+      return renderWithWrapper(
         <span 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
@@ -263,10 +293,11 @@ const [{ isOver }, drop] = useDrop(() => ({
         >
           {effectiveProps.text || "Inline text"}
           {children.length > 0 && <span className="ml-2">{children}</span>}
-        </span>
+        </span>,
+        true
       );
     case "image":
-      return (
+      return renderWithWrapper(
         <div 
           ref={drag}
           style={{width: effectiveProps.width || "100%", ...dragStyles}} 
@@ -288,7 +319,7 @@ const [{ isOver }, drop] = useDrop(() => ({
       );
     case "div":
     case "section":
-      return (
+      return renderWithWrapper(
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
@@ -320,7 +351,7 @@ const [{ isOver }, drop] = useDrop(() => ({
         </div>
       );
     default:
-      return (
+      return renderWithWrapper(
         <div 
           ref={dragDropRef}
           style={{...style, ...dragStyles}} 
